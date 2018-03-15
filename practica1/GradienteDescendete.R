@@ -1,26 +1,27 @@
-library(ISLR)
 
-gradiente <- function( x, y, iteration){
+gradiente <- function(u, v, theta, epsilon){
+  expr=expression((  (u^3 * exp(v-2)) - (4 * v^3 * exp(-u))  )^2)
+  expr.Du = D(expr, "u")
+  expr.Dv = D(expr, "v")
   
-  w = rnorm(length(x[1,]) + 1)
-  x = cbind(x, rep(1,length(x[,1])))
-
+  err = abs(eval(expr))
   
-  for (i in 1:100) {
-    print(w)
-    h = w%*%t(x)
+  it = 1
   
-    err = sum(abs(h - y)) / length(h)
-    h = h-y
-    theta = (-1) *( err / max(x)) #Mejorable
-    
-    w = w - theta * (2 / length(x[,1])) * (t(x)%*%t(h))
-    w = t(w)
+  while(err > epsilon){
+    # Mirar como cambiarlo para varias caracteristicas
+    u = u - theta * eval(expr.Du)
+    v = v - theta * eval(expr.Dv)
+    err = abs(eval(expr))
+    it = it +1  #Cuenta iteraciones
   }
   
-  w
+  c(u,v,it,err)
+  
 }
 
+w = gradiente(1,1,0.1, 10 * 10^-14)
 
-mm = matrix(1:200, nrow = 10, byrow = T)
-res = rep(1,length(mm[,1]))
+expr=expression((  (u^3 * exp(v-2)) - (4 * v^3 * exp(-u))  )^2)
+
+
