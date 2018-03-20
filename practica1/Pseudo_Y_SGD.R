@@ -187,22 +187,21 @@ linearRegression <- function( X, y ){
   H %*% y
 }
 
-SGD <- function( X, y, learningRate = 0.05 ){
+SGD <- function( X, y, learningRate = 0.05, t = 0.2 ){
   
-  T <- 1
   N <- length(y)
-  w <- rep( 0, dim(X)[2] )
+  T <- as.integer(N * t)
+  w <- rnorm( dim(X)[2] )
   
   for ( i in 1:T ){
     
     pos <- sample(N,1)
     a <- y[pos] %*% X[pos,]
     b <- 1 + exp( y[pos] %*% t(w) %*% X[pos,] )
-    # Error in a/b : non-conformable arrays
-    # v <- -( a / b )
-    for ( j in 1:length(a) )
-      a[j] <- a[j] / b
-    w <- w + learningRate * a
+    b <- as.numeric(b)
+    v <- -( a / b )
+    w <- w + learningRate * v
+    w <- as.vector(w)
   }
   
   w
