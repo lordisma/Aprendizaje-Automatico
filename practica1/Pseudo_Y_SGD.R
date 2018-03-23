@@ -1,24 +1,36 @@
 
 digit.train <- read.table("zip.train",
                           quote="\"", comment.char="", stringsAsFactors=FALSE)
+digit.test <- read.table("zip.test",
+                          quote="\"", comment.char="", stringsAsFactors=FALSE)
 
 digitos15.train = digit.train[digit.train$V1==1 | digit.train$V1==5,]
-digitos = digitos15.train[,1]    # vector de etiquetas del train
+digitos15.test  = digit.test[digit.test$V1==1 | digit.test$V1==5,]
+digitos = digitos15.train[,1]  # vector de etiquetas del train
+digitos.test = digitos15.test[,1]  # vector de etiquetas del test
 ndigitos = nrow(digitos15.train)  # numero de muestras del train
+ndigitos.test = nrow(digitos15.test)  # numero de muestras del test
 # Etiquetar los 5 como la clase -1
 digitos[ digitos == 5 ] = -1
+digitos.test[ digitos.test == 5 ] = -1
 
 # se retira la clase y se monta una matriz 3D: 599*16*16
 grises = array(unlist(subset(digitos15.train,select=-V1)),c(ndigitos,16,16))
+grises.test = array(unlist(subset(digitos15.test,select=-V1)),c(ndigitos.test,16,16))
+grises.test = as.numeric(grises.test)
+grises.test = array(grises.test,c(ndigitos.test,16,16))
+
 rm(digit.train) 
 rm(digitos15.train)
+rm(digit.test) 
+rm(digitos15.test)
 
 # Para visualizar los 4 primeros
 ## ------------------------------------------------------------------------
 
-# par(mfrow=c(2,2)) 
+# par(mfrow=c(2,2))
 # for(i in 1:4){
-#   imagen = grises[i,,16:1] # se rota para verlo bien
+#   imagen = grises.test[i,,16:1] # se rota para verlo bien
 #   image(z=imagen)
 # }
 
@@ -152,7 +164,10 @@ error_in <- function( data, labels, weights ){
   N <-length(labels)
   
   for ( i in 1:N ){
-    sum <- sum + ( t(weights) %*% data[i,] ) ^2
+    h <- ((t(weights) %*% data[i,] ) * labels[i])
+    if(h > 0){
+      
+    }
   }
   
   sum / N
@@ -160,17 +175,17 @@ error_in <- function( data, labels, weights ){
 
 scorer <-function(data, labels, weights){
   sum <- 0
-  errores_A <- 0
+  #errores_A <- 0
   N <-length(labels)
   
   for ( i in 1:N ){
     h <- ( t(weights) %*% data[i,] )
     goal <- h * labels[i]
     sum <- ifelse(goal > 0, sum +1, sum)
-    errores_A <- ifelse((goal < 0) && (h > 0), errores_A +1, errores_A)
+   # errores_A <- ifelse((goal < 0) && (h > 0), errores_A +1, errores_A)
   }
   
-  c(N, sum, sum/N, errores_A, (N * (1-(sum/N))) - errores_A)
+  sum/N
 }
 
 pseudoInverse <- function( X ){
@@ -187,23 +202,51 @@ linearRegression <- function( X, y ){
   H %*% y
 }
 
-SGD <- function( X, y, learningRate = 0.05, t = 0.2 ){
+SGD <- function( X, y, learningRate = 0.05, t = 0.1, itera = 1/t){
   
   N <- length(y)
   T <- as.integer(N * t)
-  w <- rnorm( dim(X)[2] )
+  #w <- as.vector(t(linearRegression(X,y)))
+  w <- rnorm(dim(X)[2])
   
-  for ( i in 1:T ){
+  positive_exa <-which(y==1)
+  negative_exa <-which(y==-1)
+  N_po <- length(positive_exa)
+  N_ne <- length(negative_exa)
+  
+  w_pre = w
+  scored = as.numeric(error_in(X,y,w))
+  
+  for (a in 1:itera) {
+    v <- 0  
+  
+    for ( i in 1:T ){
+      
+      pos <- ifelse((i %% 2) > 0,sample(N_po,1),sample(N_ne,1))
+      pos <- ifelse((i %% 2) > 0,positive_exa[pos],negative_exa[pos])
+      h <- t(w) %*% X[pos,]
+      er <- (h * y[pos])
+      
+      if(er < 0){
+        v = v + (X[pos,] * as.numeric(h-y[pos]))
+      }
+      #er <- er %*% t(X[pos,])
+      #er <- 2*er/N
+      #v  <- v - er
+      #v <- -( a / b )
+    }
     
-    pos <- sample(N,1)
-    a <- y[pos] %*% X[pos,]
-    b <- 1 + exp( y[pos] %*% t(w) %*% X[pos,] )
-    b <- as.numeric(b)
-    v <- -( a / b )
-    w <- w + learningRate * v
+    w <- w - learningRate * (v/N)
     w <- as.vector(w)
+    # if(scored > error_in(X,y,w)){
+    #   scored = as.numeric(error_in(X,y,w))
+    #   w_pre = w
+    # }else{
+    #   w = w_pre
+    # }
   }
-  
+  #result<-w - learningRate * v
+  #as.vector(result)
   w
 }
 
@@ -216,11 +259,24 @@ SGD <- function( X, y, learningRate = 0.05, t = 0.2 ){
 simetrias <- apply( X = grises, FUN = fsimetria, MARGIN = 1 )
 intensidades <- apply( X = grises, FUN = mean, MARGIN = 1 )
 
+simetrias.test <- apply( X = grises.test , FUN = fsimetria, MARGIN = 1)
+intensidades.test <- apply( X = grises.test, FUN = mean, MARGIN = 1 )
+
 X <- cbind( intensidades, simetrias, 1 )
+X.test <- cbind( intensidades.test, simetrias.test, 1 )
 y <- digitos
+y.test <- digitos.test
 
 weights <- linearRegression( X, y )
 makeGraph( intensidades, simetrias, digitos, weights )
 scor<-scorer(X,y,weights)
-w <- SGD( X, y )
+w <- SGD( X, y,learningRate = 0.05, t=0.04, itera = 100 )
+print("SGD (train):")
+print(as.numeric(scorer(X,y,w)) )
+print("SVD (train):")
+print(as.numeric(scorer(X,y,weights = weights)) )
+print("SGD (test):")
+print(as.numeric(scorer(X.test,y.test,w)) )
+print("SVD (test):")
+print(as.numeric(scorer(X.test,y.test,weights = weights)) )
 makeGraph(intensidades, simetrias,digitos,w)
