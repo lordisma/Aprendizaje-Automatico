@@ -4,15 +4,17 @@ digit.train <- read.table("zip.train",
 digit.test <- read.table("zip.test",
                           quote="\"", comment.char="", stringsAsFactors=FALSE)
 
-digitos15.train = digit.train[digit.train$V1==1 | digit.train$V1==5,]
-digitos15.test  = digit.test[digit.test$V1==1 | digit.test$V1==5,]
+digitos15.train = digit.train[digit.train$V1==2 | digit.train$V1==8,]
+digitos15.test  = digit.test[digit.test$V1==2 | digit.test$V1==8,]
 digitos = digitos15.train[,1]  # vector de etiquetas del train
 digitos.test = digitos15.test[,1]  # vector de etiquetas del test
 ndigitos = nrow(digitos15.train)  # numero de muestras del train
 ndigitos.test = nrow(digitos15.test)  # numero de muestras del test
 # Etiquetar los 5 como la clase -1
-digitos[ digitos == 5 ] = -1
-digitos.test[ digitos.test == 5 ] = -1
+digitos[ digitos == 8 ] = -1
+digitos.test[ digitos.test == 8 ] = -1
+digitos[ digitos == 2 ] = 1
+digitos.test[ digitos.test == 2 ] = 1
 
 # se retira la clase y se monta una matriz 3D: 599*16*16
 grises = array(unlist(subset(digitos15.train,select=-V1)),c(ndigitos,16,16))
@@ -137,7 +139,7 @@ noise <- function(label, p){
   result
 }
 
-makeGraph <- function( intensidades, simetrias, digitos, weights ){
+makeGraph <- function( intensidades, simetrias, digitos, weights1, weights2 ){
   
   # Initial data
   par(mfrow=c(1,1))
@@ -148,12 +150,17 @@ makeGraph <- function( intensidades, simetrias, digitos, weights ){
   )
   
   # Regression line
-  lineParameters <- pasoARecta( weights )
+  lineParameters <- pasoARecta( weights1 )
+  lineParameters2 <- pasoARecta( weights2 )
   #lineFunc <- function( x ) { -52.19644 * x - 122.25713 }
   lineFunc <- function( x ) { lineParameters[1] * x + lineParameters[2] }
+  lineFunc2 <- function( x ) { lineParameters2[1] * x + lineParameters2[2] }
   lineX <- c( -1, 0 )
   lineY <- c( lineFunc(-1), lineFunc(0) )
+  lineY2 <- c( lineFunc2(-1), lineFunc2(0) )
   lines( lineX, lineY, col = "black" )
+  lines( lineX, lineY2, col = "green" )
+  
   #pintar_frontera(lineFunc)
 }
 
@@ -166,7 +173,7 @@ error_in <- function( data, labels, weights ){
   for ( i in 1:N ){
     h <- ((t(weights) %*% data[i,] ) * labels[i])
     if(h > 0){
-      
+      sum = sum +1
     }
   }
   
@@ -268,7 +275,6 @@ y <- digitos
 y.test <- digitos.test
 
 weights <- linearRegression( X, y )
-makeGraph( intensidades, simetrias, digitos, weights )
 scor<-scorer(X,y,weights)
 w <- SGD( X, y,learningRate = 0.05, t=0.04, itera = 100 )
 print("SGD (train):")
@@ -279,4 +285,4 @@ print("SGD (test):")
 print(as.numeric(scorer(X.test,y.test,w)) )
 print("SVD (test):")
 print(as.numeric(scorer(X.test,y.test,weights = weights)) )
-makeGraph(intensidades, simetrias,digitos,w)
+makeGraph(intensidades, simetrias,digitos,w,weights)

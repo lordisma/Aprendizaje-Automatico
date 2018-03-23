@@ -4,7 +4,7 @@ gradiente <- function(u, v, theta, epsilon){
   expr.Du = D(expr, "u")
   expr.Dv = D(expr, "v")
   
-  err = abs(eval(expr))
+  err = eval(expr)^2
   
   it = 1
   
@@ -18,7 +18,7 @@ gradiente <- function(u, v, theta, epsilon){
     v = v - theta * eval(expr.Dv)
 
     
-    err = abs(eval(expr))
+    err = eval(expr)^2
     it = it +1  #Cuenta iteraciones
     
     
@@ -46,11 +46,11 @@ gradiente2 <- function(x, y, theta, iteration){
     # Mirar como cambiarlo para varias caracteristicas
     x = x - theta * eval(expr.Dx)
     y = y - theta * eval(expr.Dy)
-    err = abs(eval(expr))
+    err = eval(expr)^2
     
     valores_x = append(valores_x,x)
     valores_y = append(valores_y,y)
-    error     = append(error,err)
+    error     = append(error,eval(expr))
     
   }
   
@@ -59,11 +59,14 @@ gradiente2 <- function(x, y, theta, iteration){
   
 }
 
-ejercicio1 = gradiente(1,1,0.01, 10 * 10^-14)
-ejercicio2 = gradiente2(1,1,0.1, 100)
+ejercicio2a = gradiente2(1,1,0.01, 50)
+ejercicio2b = gradiente2(2.1,2.1,0.01, 50)
+ejercicio2c = gradiente2(3,-3,0.01, 50)
+ejercicio2d = gradiente2(1.5,1.5,0.01, 50)
+ejercicio2e = gradiente2(1,-1,0.01, 50)
 
-x = matrix(0:20^2,nrow = 21, byrow = T)
-y = matrix(0:20^2,nrow = 21)
+#x = matrix(0:20^2,nrow = 21, byrow = T)
+#y = matrix(0:20^2,nrow = 21)
 #mm = eval(expr)
 #scatter3D(x,y,mm,colvar = x,colkey = T)
 
