@@ -213,7 +213,6 @@ SGD <- function( X, y, learningRate = 0.05, t = 0.1, itera = 1/t){
   
   N <- length(y)
   T <- as.integer(N * t)
-  #w <- as.vector(t(linearRegression(X,y)))
   w <- rnorm(dim(X)[2])
   
   positive_exa <-which(y==1)
@@ -237,31 +236,20 @@ SGD <- function( X, y, learningRate = 0.05, t = 0.1, itera = 1/t){
       if(er < 0){
         v = v + (X[pos,] * as.numeric(h-y[pos]))
       }
-      #er <- er %*% t(X[pos,])
-      #er <- 2*er/N
-      #v  <- v - er
-      #v <- -( a / b )
     }
     
     w <- w - learningRate * (v/N)
     w <- as.vector(w)
-    # if(scored > error_in(X,y,w)){
-    #   scored = as.numeric(error_in(X,y,w))
-    #   w_pre = w
-    # }else{
-    #   w = w_pre
-    # }
   }
-  #result<-w - learningRate * v
-  #as.vector(result)
+
   w
 }
 #-------------
 #-------------
 
-Regresion_Logistica(X,Y,weights,tolerance){
+#Regresion_Logistica(X,Y,weights,tolerance){
   
-}
+#}
 
 PLA <- function(X,Y,weights_ini,max_iteration){
   
@@ -316,4 +304,6 @@ X = cbind(Data,1)
 w <- rnorm(dim(X)[2])
 
 w = PLA(X,Data.labels,w,100)
+plot(Data[,1],Data[,2],col=Data.labels)
+
 
