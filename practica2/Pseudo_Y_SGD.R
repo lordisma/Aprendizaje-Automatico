@@ -4,17 +4,17 @@ digit.train <- read.table("zip.train",
 digit.test <- read.table("zip.test",
                           quote="\"", comment.char="", stringsAsFactors=FALSE)
 
-digitos15.train = digit.train[digit.train$V1==2 | digit.train$V1==8,]
-digitos15.test  = digit.test[digit.test$V1==2 | digit.test$V1==8,]
+digitos15.train = digit.train[digit.train$V1==1 | digit.train$V1==5,]
+digitos15.test  = digit.test[digit.test$V1==1 | digit.test$V1==5,]
 digitos = digitos15.train[,1]  # vector de etiquetas del train
 digitos.test = digitos15.test[,1]  # vector de etiquetas del test
 ndigitos = nrow(digitos15.train)  # numero de muestras del train
 ndigitos.test = nrow(digitos15.test)  # numero de muestras del test
 # Etiquetar los 5 como la clase -1
-digitos[ digitos == 8 ] = -1
-digitos.test[ digitos.test == 8 ] = -1
-digitos[ digitos == 2 ] = 1
-digitos.test[ digitos.test == 2 ] = 1
+digitos[ digitos == 5 ] = -1
+digitos.test[ digitos.test == 5 ] = -1
+digitos[ digitos == 1 ] = 1
+digitos.test[ digitos.test == 1 ] = 1
 
 # se retira la clase y se monta una matriz 3D: 599*16*16
 grises = array(unlist(subset(digitos15.train,select=-V1)),c(ndigitos,16,16))
@@ -151,15 +151,15 @@ makeGraph <- function( intensidades, simetrias, digitos, weights1, weights2 ,cot
   
   # Regression line
   lineParameters <- pasoARecta( weights1 )
-  lineParameters2 <- pasoARecta( weights2 )
+  #lineParameters2 <- pasoARecta( weights2 )
   #lineFunc <- function( x ) { -52.19644 * x - 122.25713 }
   lineFunc <- function( x ) { lineParameters[1] * x + lineParameters[2] }
-  lineFunc2 <- function( x ) { lineParameters2[1] * x + lineParameters2[2] }
+  #lineFunc2 <- function( x ) { lineParameters2[1] * x + lineParameters2[2] }
   lineX <- cotas
   lineY <- c( lineFunc(-1), lineFunc(0) )
-  lineY2 <- c( lineFunc2(-1), lineFunc2(0) )
+  #lineY2 <- c( lineFunc2(-1), lineFunc2(0) )
   lines( lineX, lineY, col = "black" )
-  lines( lineX, lineY2, col = "green" )
+  #lines( lineX, lineY2, col = "green" )
   
   #pintar_frontera(lineFunc)
 }
@@ -255,7 +255,7 @@ PLA <- function(X,Y,weights_ini,max_iteration){
   
   weights = weights_ini
   
-  for (iter in 1:max_iteration) {
+  for (iter in 1:max_iteration) {#while(abs(w_predecesors - weights))
     for(elem in 1:length(Y)){
       
       valor_predict = as.numeric(t(weights) %*% X[elem,])
@@ -265,13 +265,57 @@ PLA <- function(X,Y,weights_ini,max_iteration){
       
     }
   }
-  
+  #weights <- weights / max(abs(weights))
   weights
 }
 
 
+RL <- function( X, y, learningRate = 0.05, t = 0.1, itera = 1/t){
+  
+  N <- length(y)
+  T <- as.integer(N * t)
+  w <- rnorm(dim(X)[2])
+  
+  positive_exa <-which(y==1)
+  negative_exa <-which(y==-1)
+  N_po <- length(positive_exa)
+  N_ne <- length(negative_exa)
+  
+  w_pre = w
+  scored = as.numeric(error_in(X,y,w))
+  
+  for (a in 1:itera) {
+    g <- 0  
+    
+    for ( i in 1:T ){
+      
+      pos <- ifelse((i %% 2) > 0,sample(N_po,1),sample(N_ne,1))
+      pos <- ifelse((i %% 2) > 0,positive_exa[pos],negative_exa[pos])
+      h <- t(w) %*% X[pos,]
+      er <- (h * y[pos])
+      
+      g = g + (   ((X[pos,] * y[pos])*-1)/(1 + exp(er))   )
+      
+    }
+    
+    w <- w - learningRate * (g/N)
+    w <- as.vector(w)
+  }
+  w <- w /max(abs(w))
+  w
+}
 
+sigmoid <- function(x){
+  1 / (1 + exp(-x))
+}
 
+calculate <- function(w,x){
+  result = X[,1]
+  for (i in 1:length(X[,1]))
+    result[i] = t(w) %*% X[i,]
+  
+  result
+}
 # ----------
 # ----------
 simetrias <- apply( X = grises, FUN = fsimetria, MARGIN = 1 )
@@ -285,9 +329,12 @@ X.test <- cbind( intensidades.test, simetrias.test, 1 )
 y <- digitos
 y.test <- digitos.test
 
-#weights <- linearRegression( X, y )
-#scor<-scorer(X,y,weights)
-#w <- SGD( X, y,learningRate = 0.05, t=0.04, itera = 100 )
+weights <- linearRegression( X, y )
+scor<-scorer(X,y,weights)
+wait <- RL( X, y,learningRate = 0.05, t=0.04, itera = 100 )
+w <- rnorm(dim(X)[2])
+
+w = PLA(X,Data.labels,w,10)
 #print("SGD (train):")
 #print(as.numeric(scorer(X,y,w)) )
 #print("SVD (train):")
@@ -296,14 +343,15 @@ y.test <- digitos.test
 #print(as.numeric(scorer(X.test,y.test,w)) )
 #print("SVD (test):")
 #print(as.numeric(scorer(X.test,y.test,weights = weights)) )
-#makeGraph(intensidades, simetrias,digitos,w,weights)
+makeGraph(intensidades, simetrias,digitos,w,weights)
 
 Data = simula_unif(N=100,dims = 2, rango = c(-50,50))
 Data.labels = ifelse(Data[,2] < 0,-1,1)
 X = cbind(Data,1)
 w <- rnorm(dim(X)[2])
+wait <- RL(X, Data.labels,learningRate = 0.05, t=0.04, itera = 100 )
 
 w = PLA(X,Data.labels,w,100)
-plot(Data[,1],Data[,2],col=Data.labels)
+#plot(Data[,1],Data[,2],col=Data.labels)
 
 
