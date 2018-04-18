@@ -1,0 +1,604 @@
+---
+title: "Aprendizaje automático. Práctica 2"
+author:
+  - Manuel Herrera Ojea
+  - Ismael Marín Molina
+output:
+  pdf_document: default
+  word_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r inicializacion, echo=FALSE}
+par( mfrow = c( 1, 1 ) )
+
+# Funciones facilitdas
+
+set.seed(3)	# se establece la semilla
+## ------------------------------------------------------------------------
+# por defecto genera 2 puntos entre [0,1] de 2 dimensiones 
+
+simula_unif = function (N=2,dims=2, rango = c(0,1)){
+  m = matrix(runif(N*dims, min=rango[1], max=rango[2]),
+             nrow = N, ncol=dims, byrow=T)
+  m
+}
+
+
+simula_gaus = function(N=2,dim=2,sigma){
+  
+  if (missing(sigma)) stop("Debe dar un vector de varianzas")
+  sigma = sqrt(sigma)  # para la generaci??n se usa sd, y no la varianza
+  if(dim != length(sigma)) stop ("El numero de varianzas es distinto de la dimensi??n")
+  
+  simula_gauss1 = function() rnorm(dim, sd = sigma) # genera 1 muestra, con las desviaciones especificadas
+  m = t(replicate(N,simula_gauss1())) # repite N veces, simula_gauss1 y se hace la traspuesta
+  m
+}
+
+
+simula_recta = function (intervalo = c(-1,1), visible=F){
+  
+  ptos = simula_unif(2,2,intervalo) # se generan 2 puntos
+  a = (ptos[1,2] - ptos[2,2]) / (ptos[1,1]-ptos[2,1]) # calculo de la pendiente
+  b = ptos[1,2]-a*ptos[1,1]  # calculo del punto de corte
+  
+  if (visible) {  # pinta la recta y los 2 puntos
+    if (dev.cur()==1) # no esta abierto el dispositivo lo abre con plot
+      plot(1, type="n", xlim=intervalo, ylim=intervalo)
+    points(ptos,col=3)  #pinta en verde los puntos
+    abline(b,a,col=3)   # y la recta
+  }
+  c(a,b) # devuelve el par pendiente y punto de corte
+}
+
+
+pintar_frontera = function(f,rango=c(-50,50)) {
+  x=y=seq(rango[1],rango[2],length.out = 500)
+  z = outer(x,y,FUN=f)
+  if (dev.cur()==1) # no esta abierto el dispositivo lo abre con plot
+    plot(1, type="n", xlim=rango, ylim=rango)
+  contour(x,y,z, levels = 1:20, xlim =rango, ylim=rango, xlab = "x", ylab = "y")
+}
+```
+
+## Ejercicio 1. Complejidad de H y ruido
+
+###　Apartado 1.1
+
+```{r, echo=FALSE}
+N <- 50
+size <- 50
+range = c( -size, size )
+sigma <- c( 5, 7 )
+dataUnif <- simula_unif( N, rango = range )
+dataGaus <- simula_gaus( N, sigma = sigma )
+```
+
+Para generar las muestras que se nos piden nos servimos de las funciones simula_unif y simula_gaus para obtener números aleatorios. Los conjuntos de datos que hemos obtenido con dichos generadores de números aleatorios se pueden ver en la siguiente imagen, mostrándose los puntos generados con distribución uniforme en verde y los generados con distribución normal en celeste.
+
+```{r, echo=FALSE}
+plot(
+  rbind( dataUnif, dataGaus ),
+  col = c( rep(3,N), rep(5,N) )
+)
+```
+
+Para mayor conveniencia del tratado de los datos y de su visualización hemos concatenado los dos conjunto en uno, por lo que nos referiremos a ellos como un único conjunto de datos las siguientes veces, pero no afectará realmente a los resultados que obtengamos.
+
+### Apartado 1.2
+
+```{r, echo=FALSE}
+line <- simula_recta( intervalo = c( -size, size ) )
+a <- line[1]
+b <- line[2]
+
+f <- function( v ) {
+  sign( v[2] - a * v[1] - b )
+}
+lineFunc <- function( x ) {
+  a * x + b
+}
+dataAll <- rbind( dataUnif, dataGaus )
+
+labels <- apply( dataAll, FUN = f, MARGIN = 1 )
+
+lineX <- c( -range, range )
+lineY <- c( lineFunc(-range), lineFunc(range) )
+
+noise <- function( labels, p = 0.1 ){
+  
+  # Ver dónde está cada positivo y negativo
+  
+  positives <- c()
+  negatives <- c()
+  
+  posSize <- length( labels[ labels == 1 ] )
+  negSize <- length( labels[ labels == -1 ] )
+  for ( i in 1:length(labels) )
+    if ( labels[i] == 1 )
+      positives <- c( positives, i )
+    else
+      negatives <- c( negatives, i )
+  
+  # Generar las posiciones que se alterarán
+  
+  posPositions <- sample( 1:posSize, posSize * p )
+  negPositions <- sample( 1:negSize, negSize * p )
+  
+  
+  labels[ posPositions ] = -1
+  labels[ negPositions ] = 1
+  
+  labels
+}
+```
+
+Se nos pide ahora realizar un etiquetado de datos. El criterio que seguimos es que el punto esté por encima o por debajo de la recta f(x) = y - ax - b, donde a y b son valores obtenidos con la función simula_recta. El etiquetado resultante es el siguiente:
+
+```{r, echo=FALSE}
+plot( dataAll, col = labels + 4 )
+lines( lineX, lineY, col = "black" )
+```
+
+Tras ello procedemos a introducir ruido en la población, alterando la etiqueta de un 10% de las muestras de cada clase, obteniendo con ello lo siguiente:
+
+```{r, echo=FALSE}
+labels <- noise( labels )
+
+plot( dataAll, col = labels + 4 )
+lines( lineX, lineY, col = "black" )
+```
+
+###　Apartado 1.3
+
+```{r, echo=FALSE}
+f1 <- function( v ) {
+  sign( ( v[1] - 10 ) ^2 + ( v[2] - 20 ) ^2 - 400 )
+}
+f2 <- function( v ) {
+  sign( 0.5 * ( v[1] + 10 ) ^2 + ( v[2] - 20 ) ^2 - 400 )
+}
+f3 <- function( v ) {
+  sign( 0.5 * ( v[1] - 10 ) ^2 - ( v[2] + 20 ) ^2 - 400 )
+}
+f4 <- function( v ) {
+  sign( v[2] - 20 * v[1] ^2 - 5 * v[1] + 3 )
+}
+
+labels1 <- apply( dataAll, FUN = f1, MARGIN = 1 )
+labels2 <- apply( dataAll, FUN = f2, MARGIN = 1 )
+labels3 <- apply( dataAll, FUN = f3, MARGIN = 1 )
+labels4 <- apply( dataAll, FUN = f4, MARGIN = 1 )
+```
+
+Suponemos ahora nuevas funciones para realizar la clasificación, para estudiar cómo varían respecto de la clasificación lineal y si pueden llegar a ser más convenientes que estas. Nuevamente, para decidir la clase a la que pertenece un miembro de la población nos quedamos con el signo de aplicar sobre él la función correspondiente.
+
+```{r, echo=FALSE}
+plot( dataAll, col = labels1 + 4, main = "f1(x,y) = ( x - 10 ) ^2 + ( y - 20 ) ^2 - 400" )
+```
+
+```{r, echo=FALSE}
+plot( dataAll, col = labels2 + 4, main = "f2(x,y) = 0.5 ( x + 10 ) ^2 + ( y - 20 ) ^2 - 400" )
+```
+
+```{r, echo=FALSE}
+plot( dataAll, col = labels3 + 4, main = "f3(x,y) = 0.5 () x - 10 ) ^2 - ( y + 20 ) ^2 - 400" )
+```
+
+```{r, echo=FALSE}
+plot( dataAll, col = labels4 + 4, main = "f4(x,y) = y - 20 x ^2 - 5 x + 3" )
+```
+
+Estas nuevas funciones pueden explicar mejor ciertos conjuntos de datos. Hay casos en los que no existe un clasificador lineal que decida con un error razonable la clase a la que pertecene cada miembro de una muestra, por no tratarse la muestra de un conjunto separable en dos subconjuntos de forma que uno esté siempre a un lado de una región y el otor subonjunto esté siempre al otro lado. Si los miembros de una clase están en una región circular en el espacio muestral, y los miembros de la clase opuesta están rodeando a los de la anterior, ningún clasificador lineal nos dará una predicción útil. En estos casos es necesario cambiar la clase de las funciones que estamos buscando, para poder encerrar zonas del espacio muestral con una topología más compleja.
+
+
+## Ejercicio 2. Modelos lineales
+
+### Apartado 2.1
+
+```{r, echo=FALSE}
+dataUnif <- simula_unif( N, rango = range )
+dataGaus <- simula_gaus( N, sigma = sigma )
+data <- rbind( dataUnif, dataGaus )
+data <- cbind(data,1)
+labels <- apply( data, FUN = f, MARGIN = 1 )
+dims <- 2
+weightsZero <- rep( 0, dims + 1 )
+weightsUnif <- simula_unif( dims + 1, dims = 1, rango = c(0,1) )
+maxIterations = 10
+
+PLA <- function( X, Y, startWeights, learningRate = 0.01, maxIterations ){
+  
+  i <- 0
+  threashold <- 0.01
+  ascending <- TRUE
+  weights <- startWeights
+  prevWeights <- weights
+  
+  while ( i < maxIterations & ascending ){ #while(abs(w_predecesors - weights))
+    
+    ascending <- FALSE
+    
+    for ( elem in 1:length(Y) ){
+      
+      valor_predict = sign( as.numeric( t(weights) %*% X[elem,] ) )
+      wellClassified = valor_predict * Y[elem]
+      
+      if ( wellClassified < 0 ){
+        weights = weights + learningRate * X[elem,] * wellClassified
+        ascending <- TRUE
+      }
+    }
+    
+    i <- i + 1
+  }
+  
+  weights
+}
+```
+
+Nuestra tarea ahora consiste en realizar una regresión lineal utilizando para ello el algoritmo del perceptrón, PLA. Para ellos nos servimos de los datos y etiquetas que hemos generado en el apartado 1.2. Este conjunto de aprendizaje tiene la particularidad de tratarse de un conjunto linealmente separable, por lo que tenemos la certeza de que el perceptrón terminará convergiendo. Aun así, no siempre contamos con esta ventaja, pues con problemas de alta dimensionalidad podemos no conseguir visualizar correctamente los datos y no saber en primera instancia si el conjunto que se nos ha presentado es o no linealmente separable.
+
+El perceptrón que hemos utilizado es una implementación en R del siguiente algoritmo:
+
+```
+PLA( data, labels, learningRate, maxIterations ):
+
+  i: 0
+  weights: ( 0, ..., 0 )
+  
+  while i < maxIterations and ascending:
+  
+    ascending: false
+    
+    for i in { 1, ..., length(labels) }:
+      
+      prediction: sign( transpose(weights) x data[i] )
+      wellClassified: prediction * labels[i]
+      
+      if wellClassified < 0:
+        weights: weights + labels[i] * learningRate * data[i]
+        asending: true
+      
+    i: i + 1
+    
+  return weights
+```
+
+Lo hemos ejecutado, por separado, con un vector de pesos inicializado a 0 y con uno inicializado a valores al azar generados con una distribución uniforme en [0, 1]. Tras la primera ejecucón con cada inicialización, el error tras cada iteración ha variado como se observa en las siguientes gráficas:
+
+```{r, echo=FALSE}
+weights <- PLA( data, labels, weightsZero, 1, maxIterations )
+weights <- PLA( data, labels, weightsUnif, 1, maxIterations )
+```
+```{r, echo=FALSE}
+library(ggplot2)
+
+error_in <- function( data, labels, weights ){
+  
+  sum <- 0
+  N <-length(labels)
+  
+  for ( i in 1:N ){
+    h <- ((t(weights) %*% data[i,] ) * labels[i])
+    if(h > 0){
+      sum = sum +1
+    }
+  }
+  
+  sum / N
+}
+
+plot_error_PLA <- function( X, Y, startWeights, learningRate = 0.01, maxIterations ){
+  
+  i <- 0
+  threashold <- 0.01
+  ascending <- TRUE
+  weights <- startWeights
+  prevWeights <- weights
+  value = error_in(X,Y,weights)
+  Historic = c(value)
+  elem = 1
+  iteration = 1
+    
+    while ( iteration < maxIterations & value < 1){
+      
+      valor_predict = sign( as.numeric( t(weights) %*% X[elem,] ) )
+      wellClassified = valor_predict * Y[elem]
+      
+      if ( wellClassified <= 0 ){
+        weights = weights + learningRate * X[elem,] * Y[elem]
+        ascending <- TRUE
+        value = error_in(X,Y,weights)
+      }
+      iteration = iteration + 1
+      elem = elem +1
+      
+      if(elem > length(Y)){elem = 1}
+      
+      Historic = append(Historic,value)
+    }
+
+  df = data.frame( iterations = 1:iteration , Historic)
+  df
+}
+
+N <- 100
+size <- 2
+range = c( -size, size )
+data <- simula_unif( N, rango = range )
+f <- function(x){
+  sign(x[2]-x[1])
+}
+labels <- apply( data, FUN = f, MARGIN = 1 )
+data <- cbind( data, 1 )
+weights = c(0,0,0)
+result = plot_error_PLA(data,labels,weights,0.01,length(labels))
+
+ggplot(result,aes(y=Historic)) + geom_line(aes(x=iterations))
+
+```
+```{r, echo=FALSE}
+weights = runif(3)
+result = plot_error_PLA(data,labels,weights,0.01,1000)
+ggplot(result,aes(y=Historic)) + geom_line(aes(x=iterations))
+```
+```{r, echo=FALSE}
+weights = runif(3)
+result = plot_error_PLA(data,labels,weights,0.01,1000)
+ggplot(result,aes(y=Historic)) + geom_line(aes(x=iterations))
+```
+```{r, echo=FALSE}
+weights = runif(3)
+result = plot_error_PLA(data,labels,weights,0.01,1000)
+ggplot(result,aes(y=Historic)) + geom_line(aes(x=iterations))
+```
+```{r, echo=FALSE}
+weights = runif(3)
+result = plot_error_PLA(data,labels,weights,0.01,1000)
+ggplot(result,aes(y=Historic)) + geom_line(aes(x=iterations))
+```
+```{r, echo=FALSE}
+weights = runif(3)
+result = plot_error_PLA(data,labels,weights,0.01,1000)
+ggplot(result,aes(y=Historic)) + geom_line(aes(x=iterations))
+```
+```{r, echo=FALSE}
+weights = runif(3)
+result = plot_error_PLA(data,labels,weights,0.01,1000)
+ggplot(result,aes(y=Historic)) + geom_line(aes(x=iterations))
+```
+**Con el error a�adido**
+
+```{r, echo=FALSE}
+weights = runif(3)
+labels = noise(labels)
+result = plot_error_PLA(data,labels,weights,0.01,1000)
+ggplot(result,aes(y=Historic)) + geom_line(aes(x=iterations))
+```
+
+
+
+Tras haberlo ejecutado más veces, le ha tomado de media 100 iteraciones converger a una solución al inicializarlo con un vector de pesos con 0 en todas sus posiciones, y 450 iteraciones para converger en la implementación con los pesos inicializados al azar bajo una distribución uniforme.
+
+Si le aplicamos ahora a los datos ruido tal como lo hemos hecho en el apartado 1.2, el resultado varía enormemente. En ambos casos, con cualquier inicialización, el algoritmo llega al número máximo de iteraciones que hemos fijado, sin llegar a converger en ninguna de las ejecuciones.
+
+```{r, echo=FALSE}
+weights = runif(3)
+labels = noise(labels)
+result = plot_error_PLA(data,labels,weights,0.01,1000)
+ggplot(result,aes(y=Historic)) + geom_line(aes(x=iterations))
+```
+
+```{r, echo=FALSE}
+weights = c(0,0,0)
+#labels = noise(labels)
+result = plot_error_PLA(data,labels,weights,0.01,1000)
+ggplot(result,aes(y=Historic)) + geom_line(aes(x=iterations))
+```
+Como vemos, el perceptrón no sigue una tendencia clara ni predecible; ciclará constantemente sin llegar a converger, y la solución que da es la última que ha encontrado, que no es necesariamente la mejor.
+
+Esto es un comportamiento esperable para el perceptrón, pues, al haber introducido ruido en los datos, ahora no estamos frente a un conjunto linealmente separable, por lo que nunca convergerá. En cada iteración que realiza encuentra siempre al menos un punto mal clasificado, con lo que corrige los pesos hallados hasta el momento y vuelve a hacer lo mismo, para volver a encontrarse siempre al menos otros punto más que no esté bien clasificado.
+
+Para evitar esto podemos enriquecer el algoritmo del perceptrón con su versión pocket, consistente en almacenar la mejor solución hasta el momento. Utilizando este enfoque los resultados vuelven a variar en gran medida, siendo la siguiente la evolución de su error:
+
+```{r, echo=FALSE}
+
+error_in <- function( data, labels, weights ){
+  
+  sum <- 0
+  N <-length(labels)
+  
+  for ( i in 1:N ){
+    h <- ((t(weights) %*% data[i,] ) * labels[i])
+    if(h > 0){
+      sum = sum +1
+    }
+  }
+  
+  sum / N
+}
+
+plot_error_PLA <- function( X, Y, startWeights, learningRate = 0.01, maxIterations ){
+  
+  i <- 0
+  threashold <- 0.01
+  ascending <- TRUE
+  weights <- startWeights
+  prevWeights <- weights
+  value = error_in(X,Y,weights)
+  Historic = c(value)
+  elem = 1
+  iteration = 1
+  best = value
+    
+    while ( iteration < maxIterations & value < 1){
+      
+      valor_predict = sign( as.numeric( t(weights) %*% X[elem,] ) )
+      wellClassified = valor_predict * Y[elem]
+      
+      if ( wellClassified <= 0 ){
+        aux = weights
+        aux2 = best
+        weights = weights + learningRate * X[elem,] * Y[elem]
+        ascending <- TRUE
+        value = error_in(X,Y,weights)
+        best = value
+        if(aux2 > value){
+          weights = aux
+          best = aux2
+        }
+      }
+      iteration = iteration + 1
+      elem = elem +1
+      
+      if(elem > length(Y)){elem = 1}
+      
+      
+      Historic = append(Historic,best)
+    }
+
+  df = data.frame( iterations = 1:iteration , Historic)
+  df
+}
+
+N <- 100
+size <- 2
+range = c( -size, size )
+data <- simula_unif( N, rango = range )
+f <- function(x){
+  sign(x[2]-x[1])
+}
+labels <- apply( data, FUN = f, MARGIN = 1 )
+data <- cbind( data, 1 )
+weights = c(0,0,0)
+result = plot_error_PLA(data,labels,weights,0.01,length(labels))
+
+ggplot(result,aes(y=Historic)) + geom_line(aes(x=iterations))
+```
+
+
+Ahroa sí parece que el perceptrón tenga una tendencia de convergencia. En cuanto encuentra una solución mejor que la mejor que había encontrado hasta ese momento, no se moverá nunca hacia una solución peor; nunca oscilará. A partir de cierto número de iteraciones será costoso que encuentre una nueva mejora, pero tenemos la certeza de que no tiene posibilidad de empeorar tras una iteración, como ocurría con la versión sin pocket del algoritmo del perceptrón.
+
+
+## Apartado 2.2
+
+```{r, echo=FALSE}
+N <- 100
+size <- 2
+range = c( -size, size )
+data <- simula_unif( N, rango = range )
+lineX <- simula_unif( 2, dims = 1, rango = range )
+lineY <- simula_unif( 2, dims = 1, rango = range )
+f <- function(x){
+  ( lineY[2] - lineY[1] ) / ( lineX[2] - lineX[1] ) * ( x - lineX[1] ) / lineX[2]
+}
+labels <- apply( data, FUN = f, MARGIN = 1 )
+data <- cbind( data, 1 )
+```
+
+```{r}
+LR <- function( X, y, learningRate = 0.05, t = 0.1, itera = 1/t){
+  
+  N <- length(y)
+  T <- as.integer(N * t)
+  w <- rnorm(dim(X)[2])
+  
+  positive_exa <-which(y==1)
+  negative_exa <-which(y==-1)
+  N_po <- length(positive_exa)
+  N_ne <- length(negative_exa)
+  
+  w_pre = w
+  scored = as.numeric(error_in(X,y,w))
+  
+  for (a in 1:itera) {
+    g <- 0  
+    
+    for ( i in 1:T ){
+      
+      pos <- ifelse((i %% 2) > 0,sample(N_po,1),sample(N_ne,1))
+      pos <- ifelse((i %% 2) > 0,positive_exa[pos],negative_exa[pos])
+      h <- t(w) %*% X[pos,]
+      er <- (h * y[pos])
+      
+      g = g + (   ((X[pos,] * y[pos])*-1)/(1 + exp(er))   )
+      
+    }
+    
+    w <- w - learningRate * (g/N)
+    w <- as.vector(w)
+  }
+  w <- w /max(abs(w))
+  w
+}
+
+
+```
+
+Trabajamos ahora con una regresión logística. Generamos para ello 100 puntos aleatorios en el espacio [0,2]^2 bajo una distribución uniforme y elegimos una línea que pase por ese espacio, que interpretamos como la frontera entre f(x) = 1 y f(x) = 0, y evaluamos las etiquetas en todos los puntos.
+
+Aplicamos entonces el SGD para la regresión logística. Inicializamos el vector de pesos a 0, y tomamos como condición de parada un umbral para la diferencia entre los pesos en una etapa y los pesos de la etapa inmediatamente anterior, lo que hará que el algoritmo pare tanto al haber encontrado un óptimo como al haber llegado a una meseta. Además, antes de cada época aplicamos una permutación aleatoria en el orden de los datos, y utilizamos una tasa de aprendizaje de η = 0.01.
+
+Tras aplicar la regresión logística obtenemos los resultados que pueden verse en la imagen más abajo, mostrados a través de una curva ROC. Con este tipo de gráficas tenemos una visión muy clara de la sensibilidad de nuestro ajuste, y el ajuste será mejor cuanto mayor sea el área que encierran la recta y la propia curva. Estos son nuestros resultados:
+
+```{r, echo=FALSE}
+sigmoid <- function(x){
+  1 / (1 + exp(-x))
+}
+
+PlotRoc<-function(X,Y,w){
+  pred = (X%*% w)
+  Prediction = sigmoid(pred)
+  Sensibilidad = 1:100
+  Expecifidad = 1:100
+  
+  
+  for (i in 1:100) {
+    Prediction_pos = Y[which(Prediction >= i/100)]
+    Prediction_neg = Y[which(Prediction < i/100)]
+    
+    VP = Prediction_pos[Prediction_pos > 0]
+    FP = Prediction_pos[Prediction_pos < 0]
+    
+    VN = Prediction_neg[Prediction_neg < 0]
+    FN = Prediction_neg[Prediction_neg > 0]
+    
+    Sensibilidad[i] = length(VP) / (length(VP) + length(FN))
+    Expecifidad[i] = 1 - (length(VN) / (length(VN) + length(FP)))
+  }
+  
+  Expecifidad = 1 - Expecifidad
+  Sensibilidad = Sensibilidad[length(Sensibilidad):1]
+  df = data.frame(Sensibilidad, Expecifidad)
+  df
+
+}
+weights <- LR( data, labels )
+result = PlotRoc(data,labels,-weights)
+result2 = PlotRoc(data,labels,weights)
+
+ggplot(result,aes(x=Expecifidad))+geom_line(aes(y=Sensibilidad, color="Inverse")) + geom_line(aes(y=result2$Sensibilidad, color="Regression Logistic")) + geom_line(aes(y=Expecifidad))
+```
+
+En verde hemos representado nuestro resultado, weights, y en rojo la inversa de nuestros resultados, -weights. Nuestra curva está completamente por debajo de la recta, pero su inversa está completamente sobre ella, lo que indica un muy buen ajuste de su inversa. De aquí extraemos que nuestro algoritmo de regresión logística ha logrado aprender de forma precisa la función complementaria a la función que buscábamos. De haber aprendido una función cuyo error estuviese cerca del 50% no podríamos decir lo mismo, pues es realmente el peor caso, donde la función predice igual que un algoritmo que asigne clases al azar. Pero al estar el error muy cercano tanto al 0% como al 100% podemos confiar en que nos hemos acercado a la función a la que deseábamos acercarnos. Como aquí tratamos con un error cercano al 100%, solo necesitaremos invertir los resultados que nos ofrezca nuestro clasificador, y tendremos la confianza de que se comporte así como un clasificador con un error cercano al 0% cuyos resultados utilicemos sin invertir.
+
+Tras haber obtenido los pesos utilizando un SGD, probamos la bondad del ajuste para individuos que no pertenecieran al conjunto de aprendizaje. Para simular este nuevo conjunto volvemos a generar datos bajo una distribución uniforme, 1000 en este caso.
+
+```{r, echo=FALSE}
+N <- 1000
+dataTest <- simula_unif( N, rango = range )
+labels <- apply( dataTest, FUN = f, MARGIN = 1 )
+dataTest <- cbind( dataTest, 1 )
+```
+
+
+Aun así, aun habiendo obtenido los resultados que hemos obtenido tanto con la regresión logística en este apartado como con el perceptrón en el apartado anterior, no podemos concluir que nuestros clasificadores sean mejores que otros con mejor o con peor error que los nuestros. El error que ofrezcan con el conjunto de aprendizaje no es una garantía de cómo se vayan a comportar con un conjunto de prueba posterior, así como tampoco lo es el error que ofrezcan con un conjunto de prueba concreto. Sabemos que existe una posibilidad de nula de que los conjuntos que hemos utilizado para el aprendizaje y para la puesta a prueba no sean representativos de la población; existe la posibilidad de sacar a ciegas 10 bolas rojas de un cubo con 50 bolas rojas y 50 verdes. Es por ello que, pese a lo que hayamos conseguido durante el aprendizaje, lo que obtenemos posteriormente al predecir una clase es en realidad una probabilidad de haber realizado una buena predicción, no una garantía. Al aumentar el tamaño del conjunto de aprendizaje aumentamos de forma directa esa probabilidad, pero nunca vamos a llegar a una completa certeza.
+
+Para una muestra de 1000 elementos con los pesos devueltos por la regresion logistica hemos obtenido un error de 0.6987 lo cual es pr�ximo a los valores predichos por el error en la muestra.

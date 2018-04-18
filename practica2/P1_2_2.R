@@ -1,4 +1,4 @@
-library(ggplot2)
+#library(ggplot2)
 # recordarle en la memoria que sabemos que sacar mejor error en training no significa sacar mejor error en test.
 
 # usar pintar_frontera( f, rango de valores )
@@ -167,9 +167,6 @@ noise <- function( labels, p = 0.1 ){
   labels[ posPositions ] = -1
   labels[ negPositions ] = 1
   
-  print( posPositions )
-  print( negPositions )
-  
   labels
 }
 
@@ -275,6 +272,11 @@ PLA <- function( X, Y, startWeights, learningRate = 0.01, maxIterations ){
   #weights <- weights / max(abs(weights))
   weights
 }
+norm<-function(w){
+  r = sum(w^2)
+  as.numeric(sqrt(r))
+}
+
 plot_error_PLA <- function( X, Y, startWeights, learningRate = 0.01, maxIterations ){
   
   i <- 0
@@ -282,43 +284,30 @@ plot_error_PLA <- function( X, Y, startWeights, learningRate = 0.01, maxIteratio
   ascending <- TRUE
   weights <- startWeights
   prevWeights <- weights
-  Historic = rep(0,maxIterations)
   value = error_in(X,Y,weights)
-  
-  #while ( i < maxIterations & ascending ){ #while(abs(w_predecesors - weights))
+  Historic = c(value)
+  elem = 1
+  iteration = 1
     
-   # ascending <- TRUE
-    
-    for ( elem in 1:length(Y) ){
+    while ( iteration < maxIterations & value < 1){
       
       valor_predict = sign( as.numeric( t(weights) %*% X[elem,] ) )
       wellClassified = valor_predict * Y[elem]
-      #print(t(weights))
-      #print(X[elem,])
-      #print(c(valor_predict, wellClassified))
-      #print(Y[elem])
-      #print(" ")
+      
       if ( wellClassified <= 0 ){
         weights = weights + learningRate * X[elem,] * Y[elem]
         ascending <- TRUE
-        #print( "ascending" )
-        #print( i )
         value = error_in(X,Y,weights)
-        
       }
+      iteration = iteration + 1
+      elem = elem +1
       
-      Historic[elem]=value
+      if(elem > length(Y)){elem = 1}
+      
+      Historic = append(Historic,value)
     }
-    #print(value)
-    #Historic[i]=value
-    #i <- i + 1
-    #print(weights)
-  #}
-  
-  #print( i )
-  
-  #weights <- weights / max(abs(weights))
-  df = data.frame( iterations = 1:length(Y) , Historic)
+
+  df = data.frame( iterations = 1:iteration , Historic)
   df
 }
 
@@ -366,7 +355,6 @@ LR <- function( X, y, learningRate = 0.05, t = 0.1, itera = 1/t){
     
     w <- w - learningRate * (g/N)
     w <- as.vector(w)
-    print(error_in(X,y,w))
   }
   w <- w /max(abs(w))
   w
@@ -411,16 +399,18 @@ data <- simula_unif( N, rango = range )
 lineX <- simula_unif( 2, dims = 1, rango = range )
 lineY <- simula_unif( 2, dims = 1, rango = range )
 f <- function(x){
-  ( lineY[2] - lineY[1] ) / ( lineX[2] - lineX[1] )  *  ( x - lineX[1] )  /  lineX[2]
+  sign(x[2]-x[1])
 }
-#labels <- apply( data, FUN = f, MARGIN = 1 )
-labels <- ifelse(data[,2] > mean(data[,1]), 1, -1)
+labels <- apply( data, FUN = f, MARGIN = 1 )
+#labels <- ifelse(data[,2] > mean(data[,1]), 1, -1)
 data <- cbind( data, 1 )
 
 weights <- LR( data, labels )
 makeGraph( data[,1], data[,2], labels, weights, range )
 result = PlotRoc(data,labels,-weights)
 result2 = PlotRoc(data,labels,weights)
-ggplot(result,aes(x=Expecifidad))+geom_line(aes(y=Sensibilidad, color="Inverse")) + geom_line(aes(y=result2$Sensibilidad, color="Regression Logistic")) + geom_line(aes(y=Expecifidad))
+weights = c(0,0,0)
+#ggplot(result,aes(x=Expecifidad))+geom_line(aes(y=Sensibilidad, color="Inverse")) + geom_line(aes(y=result2$Sensibilidad, color="Regression Logistic")) + geom_line(aes(y=Expecifidad))
 result = plot_error_PLA(data,labels,weights,1,length(labels))
-ggplot(result,aes(y=Historic)) + geom_line(aes(x=iterations))
+#ggplot(result,aes(y=Historic)) + geom_line(aes(x=iterations))
+plot(data[,1],data[,2],col= labels + 4)
