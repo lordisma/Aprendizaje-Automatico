@@ -1,4 +1,4 @@
-
+library(ggplot2)
 # recordarle en la memoria que sabemos que sacar mejor error en training no significa sacar mejor error en test.
 
 # usar pintar_frontera( f, rango de valores )
@@ -222,6 +222,20 @@ weightsZero <- rep( 0, dims + 1 )
 weightsUnif <- simula_unif( dims + 1, dims = 1, rango = c(0,1) )
 maxIterations = 10
 
+error_in <- function( data, labels, weights ){
+  
+  sum <- 0
+  N <-length(labels)
+  
+  for ( i in 1:N ){
+    h <- ((t(weights) %*% data[i,] ) * labels[i])
+    if(h > 0){
+      sum = sum +1
+    }
+  }
+  
+  sum / N
+}
 PLA <- function( X, Y, startWeights, learningRate = 0.01, maxIterations ){
   
   i <- 0
@@ -229,10 +243,11 @@ PLA <- function( X, Y, startWeights, learningRate = 0.01, maxIterations ){
   ascending <- TRUE
   weights <- startWeights
   prevWeights <- weights
+
   
   while ( i < maxIterations & ascending ){ #while(abs(w_predecesors - weights))
     
-    ascending <- FALSE
+    ascending <- TRUE
     
     for ( elem in 1:length(Y) ){
       
@@ -249,8 +264,8 @@ PLA <- function( X, Y, startWeights, learningRate = 0.01, maxIterations ){
         #print( "ascending" )
         #print( i )
       }
+      
     }
-    
     i <- i + 1
     print(weights)
   }
@@ -260,9 +275,57 @@ PLA <- function( X, Y, startWeights, learningRate = 0.01, maxIterations ){
   #weights <- weights / max(abs(weights))
   weights
 }
+plot_error_PLA <- function( X, Y, startWeights, learningRate = 0.01, maxIterations ){
+  
+  i <- 0
+  threashold <- 0.01
+  ascending <- TRUE
+  weights <- startWeights
+  prevWeights <- weights
+  Historic = rep(0,maxIterations)
+  value = error_in(X,Y,weights)
+  
+  #while ( i < maxIterations & ascending ){ #while(abs(w_predecesors - weights))
+    
+   # ascending <- TRUE
+    
+    for ( elem in 1:length(Y) ){
+      
+      valor_predict = sign( as.numeric( t(weights) %*% X[elem,] ) )
+      wellClassified = valor_predict * Y[elem]
+      #print(t(weights))
+      #print(X[elem,])
+      #print(c(valor_predict, wellClassified))
+      #print(Y[elem])
+      #print(" ")
+      if ( wellClassified <= 0 ){
+        weights = weights + learningRate * X[elem,] * Y[elem]
+        ascending <- TRUE
+        #print( "ascending" )
+        #print( i )
+        value = error_in(X,Y,weights)
+        
+      }
+      
+      Historic[elem]=value
+    }
+    #print(value)
+    #Historic[i]=value
+    #i <- i + 1
+    #print(weights)
+  #}
+  
+  #print( i )
+  
+  #weights <- weights / max(abs(weights))
+  df = data.frame( iterations = 1:length(Y) , Historic)
+  df
+}
 
 weights <- PLA( data, labels, weightsZero, 1, maxIterations )
+#result<-plot_error_PLA(data,labels,weightsZero,1,maxIterations)
 makeGraph( data[,1], data[,2], labels, weights, range )
+#ggplot(result,aes(y=Historic)) + geom_line(aes(x=Iterations))
 
 weights <- PLA( data, labels, weightsUnif, 1, maxIterations )
 makeGraph( data[,1], data[,2], labels, weights, range )
@@ -271,20 +334,7 @@ makeGraph( data[,1], data[,2], labels, weights, range )
 
 ## Apartado 2.2
 
-error_in <- function( data, labels, weights ){
-  
-  sum <- 0
-  N <-length(labels)
-  
-  for ( i in 1:N ){
-    h <- ((t(weights) %*% data[i,] ) * labels[i])
-    if(h > 0){
-      sum = sum +1
-    }
-  }
-  
-  sum / N
-}
+
 
 LR <- function( X, y, learningRate = 0.05, t = 0.1, itera = 1/t){
   
@@ -316,6 +366,7 @@ LR <- function( X, y, learningRate = 0.05, t = 0.1, itera = 1/t){
     
     w <- w - learningRate * (g/N)
     w <- as.vector(w)
+    print(error_in(X,y,w))
   }
   w <- w /max(abs(w))
   w
@@ -326,7 +377,8 @@ sigmoid <- function(x){
 }
 
 PlotRoc<-function(X,Y,w){
-  Prediction = sigmoid(X %*% w)
+  pred = (X%*% w)
+  Prediction = sigmoid(pred)
   Sensibilidad = 1:100
   Expecifidad = 1:100
   
@@ -345,6 +397,8 @@ PlotRoc<-function(X,Y,w){
     Expecifidad[i] = 1 - (length(VN) / (length(VN) + length(FP)))
   }
   
+  Expecifidad = 1 - Expecifidad
+  Sensibilidad = Sensibilidad[length(Sensibilidad):1]
   df = data.frame(Sensibilidad, Expecifidad)
   df
 
@@ -360,10 +414,13 @@ f <- function(x){
   ( lineY[2] - lineY[1] ) / ( lineX[2] - lineX[1] )  *  ( x - lineX[1] )  /  lineX[2]
 }
 #labels <- apply( data, FUN = f, MARGIN = 1 )
-labels <- ifelse(data[,2] > 0, 1, -1)
+labels <- ifelse(data[,2] > mean(data[,1]), 1, -1)
 data <- cbind( data, 1 )
 
 weights <- LR( data, labels )
 makeGraph( data[,1], data[,2], labels, weights, range )
-result = PlotRoc(data,labels,weights)
-
+result = PlotRoc(data,labels,-weights)
+result2 = PlotRoc(data,labels,weights)
+ggplot(result,aes(x=Expecifidad))+geom_line(aes(y=Sensibilidad, color="Inverse")) + geom_line(aes(y=result2$Sensibilidad, color="Regression Logistic")) + geom_line(aes(y=Expecifidad))
+result = plot_error_PLA(data,labels,weights,1,length(labels))
+ggplot(result,aes(y=Historic)) + geom_line(aes(x=iterations))
