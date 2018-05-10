@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 ---
 title: "paraTrabajo3.Rmd"
 author: "Sylvia Acid"
@@ -474,3 +475,483 @@ Eliminar las  variables con varianza 0 o muy prÃ³ximas, esto es muy desbalance
 nearZeroVar(segData.tr)
 ```
 
+=======
+---
+title: "paraTrabajo3.Rmd"
+author: "Sylvia Acid"
+date: "1 de mayo de 2018"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+#setwd("~/AA/2017/R")
+knitr::opts_knit$set(root.dir = getwd()) 
+```
+
+
+*** El dataset Auto***
+
+$Description$:
+Gas mileage, horsepower, and other information for cars.
+
+```{r}
+#install.packages("ISLR")
+library("ISLR")
+data("Auto")   # loads the dataset
+```
+
+
+```{r}
+class(Auto)
+colnames(Auto)
+head(Auto)
+summary(Auto)
+dim(Auto)
+```
+
+Estamos interesados en el atributo $mpg$, vamos a tratar de visualizar por pares los atributos $mpg$ y $cylinders$ mediante los comandos  $plot$ and $boxplot$.
+
+```{r}
+plot(Auto$cylinders,Auto$mpg, main=" cylinders vs mpg")
+boxplot(mpg~weight, data=Auto, xlab="weight", ylab = "mpg")
+boxplot(mpg~cut(horsepower, breaks = 10),data = Auto)
+
+```
+
+
+```{r}
+attach ( Auto )  # para simplificar y prescindir del prefijo Auto 
+#pairs(~ .,data = Auto)  # todos con todos
+pairs(~ mpg + cylinders + displacement + horsepower + weight + acceleration + year + origin, data= Auto)
+ # solo algunas
+
+```
+Para evaluar los modelos, partimos el data.frame en training y test
+
+```{r}
+set.seed(1)
+train = sample (nrow(Auto), round(nrow(Auto)*0.7)) # nos quedamos con los indices para el training
+auto.train = Auto[train,]  # podemos reservarlos aparte ... con subset no serÃ????a necesario 
+auto.test = Auto[-train,]
+```
+
+
+
+Para el aprendizaje de modelos predictores tanto para regresi?n como para problemas de clasificaci?n basados en diferentes paradigmas todos ellos tienen en com?n:
+
+1. Obtienen un objeto de un tipo particular, o class, asociado. $class(objeto)$. Esta clase define su estructura: sus componentes y sus m?todos: las operaciones que se le pueden aplicar.
+$methods(class(objeto))$.
+2.Funciones gen?ricas, que se aplican sobre todo objeto
+
+Para mostrar el modelo obtenido, ser? ?til la funci?n
+$print(objeto)$\\
+Para la visualizaci?n del modelo $plot$\\
+Para obtener un vector de predicciones $predict$\\
+Para mostrar lo esencial del modelo aprendido $summary(objeto)$\\
+M?s abajo se muestran unos ejemplos.
+
+
+Adicionalmente podr?n usarse entre otras algunas de las funciones que se listan a continuaci?n junto con librer?as donde se las pueden encontrar. Indicar que no son ?nicas
+
+Las funciones lm y glm para modelos lineales,
+que vienen en los paquetes standares de R como se ha visto anteriormente.
+Se puede usar la librer?a caret para realiza Validacion cruzada
+
+```{r}
+library(caret)
+ctrol = trainControl(method="cv", number=10)
+set.seed(13)
+lm05 = train(x= X , y= Y,method ="lm", trControl = ctrol)
+
+```
+
+Tambien, se pueden encontrar en MASS, la funcion rlm 
+robust regresion lineal.
+
+
+```{r}
+#library("MASS")
+rml1 = rlm(mpg ~ weight + horsepower + displacement, data = Auto, subset=train)
+summary(rml1)
+
+
+```
+
+
+*Modelos de regresi?n con penalizacion*\\
+
+en MASS est? disponible la funcion $lm.ridge()$ o bien, la funcion $enet()$ en el paquete elasticnet. Est?n disponibles tanto el lasso como el decay.
+
+
+*Support Vector Machine*\\
+
+$ksvm()$ en el paquete *kernlab* o tambien 
+la funcion $svm()$ de *e1071*
+*Redes neuronales
+la funci?n $nnet()$ del paquete *nnet* y el paquete RSNNS.
+
+*arboles y modelos basados en ?stos*
+para Forest, bagging y boosting respectivamente:
+
+funci?n $randomForest()$ del paquete randomForest\\
+funcion $bagging()$ del paqete \\
+funcion $gbm()$ \\
+
+En muchas ocasiones es necesario pasar valores a algunos par?metros a los m?todos de aprendizaje, caso de no hacerlo ?stos toman unos valores por defecto, ser? necesario conocer cu?l o cu?les. Ejemplo, para knn, necesario el valor $k$ de vecinos, para ?rboles, profundidad, para bagging n?mero de ?rboles etc...
+
+
+Para ello ser? necesario, realizar el producto de los dominios de cada uno de los valores que se quieren evaluar. En el ejemplo los los par?metros interaction.depth, n.trees, y shrinkage  para la funci?n $gbm$
+
+```{r}
+gmbGrid = expand.grid(.interaction.depth= seq(1,7, by=2), .n.strees = seq(100,1000,by= 50), 
+.shrinkage = c(0.01,0.1)
+)
+set.seed(13)
+gmbTune= train(x=, y= ,
+               method="gmb",
+               tuneGrid = gmbGrid)
+
+```
+Se eligen los par?metros ?ptimos de acuerdo a alguna de las medidas de error, del modelo.
+
+```{r}
+ridgeGrid = data.frame(.lambda = seq(0, .1, length=10))
+#valores de penalizacion a considerar
+set.seed(13)
+ridgeReg = train(x=, y=,
+                 method="ridge",
+                 tuneGrid=ridgeGrid,
+                 ...)
+
+```
+
+
+
+Si se quiere afinar con la b?squeda del mejor par?metro a usar para un determinado modelo es com?n en muchos paquetes, una funci?n $tune$, o existe alguna gen?rica.
+Seguimos con modelos b?sicos.
+
+
+```{r }
+m1 = lm(mpg ~ weight, data=Auto, subset=train)
+print(m1)
+summary(m1)
+plot(Auto$weight, Auto$mpg, main=" weight vs mpg")
+abline(m1$coefficients, col=2)
+```
+m1, nuestro primer modelo
+
+```{r}
+m2 = lm(mpg ~ horsepower, data=Auto, subset=train)
+plot(Auto$horsepower, Auto$mpg, main=" horsepower vs mpg")
+abline(m2$coefficients, col=2)
+summary(m2)
+
+m3 = lm(mpg ~ ., data=Auto, subset=train) # en funciÃ³n del resto, de TODOS 
+#coef(m3)
+
+
+m4 = lm(mpg ~ weight + horsepower + displacement, data=Auto, subset=train)
+summary(m4)
+
+```
+
+
+QuÃ© funciones se pueden aplicar sobre un modelo, como m4?
+```{r}
+methods(class=class(m4))
+```
+
+De las grÃ¡ficas anteriores parece que las relaciones observadas no son lineales ...
+
+HabrÃ¡ que incorporar algÃºn tipo de transformaciÃ³n no lineal de los atributos ...
+Por ejemplo, una forma cuadrÃ¡tica
+
+```{r}
+m5 = lm(mpg ~ I(weight^2), data=Auto, subset=train)
+coef(m5)
+plot(Auto$mpg~Auto$weight)
+w= m5$coefficients
+x = matrix(rep(1, length(Auto$weight)),nrow= length(Auto$weight))
+x= cbind (x, Auto$weight^2)
+y= apply(x, 1, function(vec) w %*% vec)
+points(Auto$weight, y, col=2)
+```
+
+Con los modelos, podemos obtener predicciones
+```{r}
+yhatm1Tr = predict(m1) # usa el propio training
+yhatm1Tst = predict(m1, auto.test, type= "response")
+
+etr = mean((yhatm1Tr - auto.train[,1])^2)
+etst = mean((yhatm1Tst - auto.test[,1])^2)
+
+```
+
+
+Para ver otras transformaciones p.ej. cubicas etc..  consultar $poly()$, $log()$.
+A la hora de seleccionar modelos...
+
+Evaluacion exhaustiva, con $p$ pequeño
+
+```{r}
+library("leaps")
+Auto3 = Auto[,-ncol(Auto)]
+subset.exh = regsubsets ( Auto3$mpg ~. , data = Auto3, nvmax = 8, method="exhaustive")
+summary ( subset.exh )
+```
+
+De forma greedy, hacia adelante o hacia atras
+
+```{r}
+subset.fwd = regsubsets ( Auto3$mpg ~. , data = Auto3 , nvmax =8 ,method ="forward")
+reg.summary = summary ( subset.fwd )
+
+```
+
+Para ver la grafica por tamaños y elegir un tamaño
+```{r}
+#par ( mfrow = c (1 ,2) )
+plot ( reg.summary$cp , xlab =" Number of Variables " , ylab =" Cp " ,
+type = "l")
+which.min (reg.summary$cp )
+plot (reg.summary$bic , xlab =" Number of Variables " , ylab =" BIC " ,
+type = "l")
+which.min ( reg.summary$bic )
+```
+
+
+
+**Clasificacion**
+
+Vamos a convertir el problema en un problema de clasificacion binaria
+Se crea una variable binaria, mpg01
+
+```{r}
+Auto2 = data.frame(mpg01 = (ifelse(Auto$mpg<median(Auto$mpg),0,1)),Auto)
+```
+
+**Particionar el conjunto en training y test**
+
+
+Se ajusta un modelo lineal, por ejemplo mediante regresiÃ³n logÃ????stica para predecir $mpg01$.
+Se puede especificar de forma explÃ????cita los atributos a considerar a la hora de construir el modelo, el resto se ignoran.
+Se explica mpg01 mediante los atributos weight, horsepower y displacement.
+
+
+```{r}
+ml1 = glm(mpg01 ~ weight + horsepower + displacement,
+  family = binomial(logit), data = Auto2, subset=train)
+summary(ml1)
+
+```
+
+Una vez aprendido, veamos cÃ³mo predice...
+
+```{r}
+#Calculo de probabilidades
+probTr.ml1 = predict(ml1, type="response")
+probTstml1 = predict(ml1, data.frame(Auto2[-train,-1]), type="response")
+
+```
+
+predicciones con el modelo de regresiÃ³n logÃ????stica
+
+```{r}
+predTstml1 = rep(0, length(probTstml1))  # predicciones por defecto 0
+predTstml1[probTstml1 >=0.5] = 1          # >= 0.5 clase 1
+
+table(predTstml1, Auto2[-train,1])  # para el calculo del Eval
+Eval = mean(predTstml1 != Auto2[-train,1])
+cat("Eval con el modelo LR "); print(ml1$call)
+print(Eval)
+
+```
+se obtiene el Etest, y para obtener el Ein?
+
+Otras familias de funciones ...
+
+```{r}
+ml2 = glm(mpg01 ~ weight + horsepower + displacement,
+  family = gaussian(identity), data = Auto2, subset=train)
+summary(ml2)
+```
+A la hora de comparar clasificadores, grÃ¡ficamente se muestra por la curva ROC
+Es mejor clasificador, cuanto mayor sea el Ã¡rea debajo de la curva.
+
+```{r}
+install.packages("ROCR")
+library("ROCR")
+pred1 = prediction(probTstml1,Auto2[-train,1])
+perf1 = performance(pred1,"tpr","fpr")
+plot(perf1, main="conjunto de test")#,add=TRUE) # pinta la curva
+
+```
+
+Se pueden hacer comparaciones grÃ¡ficas entre varios modelos
+```{r}
+probTstml2 = predict(ml2, data.frame(Auto2[-train,-1]), type="response")
+pred2 = prediction(probTstml2,Auto2[-train,1])
+perf2 = performance(pred2,"tpr","fpr")
+plot(perf2,lty=3, col="blue")
+legend(0.6,0.6,c("ML1","ML2"),col=c(2,3),lwd=3)
+#plot(perf2,lty=3, col="blue",add=TRUE)) # pinta la curva
+```
+
+
+Para el preprocesamiento
+
+Centrado, escalado, transformaciÃ³n para reducir la asimetria
+Vamos a trabajar con el dataset segmentationOriginal   que trata de  
+Cell Body Segmentation problema de clasificaciÃ³n , cÃ©lulas Pobremente segmentadas o Well segmentadas.
+
+```{r}
+library("AppliedPredictiveModeling")
+library(help=AppliedPredictiveModeling)
+data("segmentationOriginal")
+class(segmentationOriginal)
+names(segmentationOriginal)[1:10]
+summary(segmentationOriginal[1:10])
+```
+
+```{r}
+cellcase = segmentationOriginal$Case
+unique(cellcase)
+segData.tr = subset(segmentationOriginal, Case == "Train")
+dim(segData.tr)
+dim(segmentationOriginal)
+cellClass = segData.tr$Class
+unique(cellClass)
+cellID = segData.tr$Cell
+length(unique(cellID))
+segData.tr = segData.tr[, -c(1:3)]  # eliminadas los 3 primeras atributos
+```
+Se eliminan parte de la informaciÃ³n, columnas redundantes ... 
+Todas aquellas que contengan status ...
+```{r}
+length(grep("Status", names(segData.tr)))
+b = (grep("Status", names(segData.tr)))
+segData.tr = segData.tr[,-b]
+dim(segData.tr)
+names(segData.tr)
+
+```
+
+TransformaciÃ³n de atributos asimÃ©tricos, necesarios para la aplicaciÃ³n de algunos mÃ©todos de aprendizaje sensibles a distancias. Se consideran asimÃ©tricos cuando o bien la ratio entre min y max de $range() > 20$ o bien el valor skewness se aleja de 0.
+
+\[ skewness = \frac{\sum (x_i-mean(x))^3}{(n-1)v^3/2} \]
+donde $v$ es la varianza.
+Para verlo:
+
+```{r}
+par(mfrow=c(1,2))
+hist (segData.tr$AreaCh1)
+range(segData.tr$AreaCh1)
+hist(segData.tr$AngleCh1)
+range(segData.tr$AngleCh1)
+par(mfrow=c(1,1))
+```
+Una funciÃ³n que la mide
+
+
+```{r}
+library("e1071")
+?skewness
+skewness(segData.tr$AreaCh1)
+skewness(segData.tr$AngleCh1)
+```
+
+Se puede observar las que lo requieren:
+
+```{r}
+v_asimetria = apply(segData.tr,2,skewness)
+v_asimetria[1:15]
+sort(abs(v_asimetria), decreasing = T)[1:10]
+```
+
+Se quiere aplicar funciones sobre los datos para eliminar dicha asimetrÃ????a para un trato homogÃ©neo de todas los atributos.
+
+Una familia de funciones para la transformaciÃ³n ( que incluye desde cuadrÃ¡ticas, raÃ????ces, inversas etc.. son las propuestas por Box y Cox (1964) un parÃ¡metro como  $\lambda$:
+
+  $\frac{x^{\lambda} -1}{\lambda}$ si $\lambda \not = 0$ 
+  
+   o bien
+  
+  $log(x)$ si $\lambda = 0$
+  
+
+Con *skewness()* lo detecta pero cuÃ¡l es la transformaciÃ³n, para ello:
+
+```{r}
+#install.packages("caret")
+#library("caret", lib.loc="~/R/x86_64-redhat-linux-gnu-library/3.3")
+#library("caret")
+
+BoxCoxTrans(segData.tr$AngleCh1)  # no transformacion
+BoxCoxTrans(segData.tr$AreaCh1)
+Ch1Area_trans = BoxCoxTrans(segData.tr$AreaCh1)
+
+head(segData.tr$AreaCh1)
+# head(Ch1Area_trans) no funciona es necesario aplicar la formula mediante predict
+predict(Ch1Area_trans,head(segData.tr$AreaCh1))
+
+```
+
+
+es justo,la transformaciÃ³n con $lambda = -0.9$
+  Datos transformados:
+  
+```{r}
+par(mfrow=c(1,2))
+hist (segData.tr$AreaCh1)
+hist(predict(Ch1Area_trans,head(segData.tr$AreaCh1)))
+```
+
+
+**Demasiados atributos**
+
+tambiÃ©n en *caret*
+Algunos redundantes o irrelevantes, es conveniente reducir dimensionalidad. El algoritmo PCA (principal components analysis) es un filtro (selector de caracterÃ????sticas) no supervisado. Aunque es sensible a escala y valores grandes, previamente se hace el centrado y la escala.
+Calcula el porcentaje del total de la varianza de los datos por cada atributo
+
+```{r}
+pcaObject = prcomp(segData.tr,center = TRUE, scale. = TRUE)
+attributes(pcaObject)
+head(pcaObject$center)
+porcentVariance = pcaObject$sd^2/sum(pcaObject$sd^2)*100
+porcentVariance[1:5]
+head(pcaObject$x[, 1:5])
+```
+
+En X se encuentran los valores transformados ya.
+
+```{r}
+plot(pcaObject,type="l")
+head(pcaObject$rotation[, 1:5])
+```
+Por filas vemos los atributos que forman parte de  cada uno de los componentes y sus coeficientes. Por defecto la funciÃ³n selecciona aquellos componentes que explican hasta el  95% de la variabilidad de los datos... se puede cambiar con argumentos thresh. 
+
+A la hora de aplicar las transformaciones, en *caret* existe una funciÃ³n **preProcess()** que realiza todas transformaciones mencionadas de forma ordenada.
+
+pREPROCESAMIENTO EN RESUMEN:
+
+```{r}
+ObjetoTrans =  preProcess(segData.tr, method = c("BoxCox", "center", "scale", "pca"),thres=0.8)
+ObjetoTrans
+```
+
+Para obtener un nuevo conjunto de datos, se aplican
+
+```{r}
+segTrans = predict(ObjetoTrans,segData.tr)
+dim(segTrans)
+```
+
+Eliminar las  variables con varianza 0 o muy prÃ³ximas, esto es muy desbalanceadas o de valor Ãºnico.
+
+```{r}
+nearZeroVar(segData.tr)
+```
+
+>>>>>>> Stashed changes
