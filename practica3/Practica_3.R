@@ -5,7 +5,7 @@ library(glmnet)
 opt.tra = read.csv("optdigits_tra.csv")
 airfoil.tra = read.csv("airfoil_self_noise.csv")
 
-#Configuracion de parémetros
+#Configuracion de par?metros
 seed = 674155357
 set.seed(seed = seed)
 numberOfPartes = 5
@@ -15,15 +15,12 @@ numberOfPartes = 5
 
 
 
-
-
-
 #Describimos los datos del train
 summary(opt.tra)
 summary(airfoil.tra)
 
 
-#Division de los datos en etiquetas y carasterísticas y iniciamos el cross validation
+#Division de los datos en etiquetas y caraster?sticas y iniciamos el cross validation
 labels = airfoil.tra[,"X0.26"]
 names.opt = colnames(airfoil.tra)
 predict.opt = airfoil.tra[,match(names.opt, colnames(airfoil.tra))]
